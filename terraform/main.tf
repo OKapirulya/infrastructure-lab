@@ -8,7 +8,7 @@ terraform {
 }
 
 provider "docker" {
-  host = "ssh://hools-terraform"
+  host = "ssh://${var.ssh_host}"
 }
 
 resource "docker_image" "ubuntu" {
