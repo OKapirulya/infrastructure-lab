@@ -5,7 +5,7 @@ variable "ssh_host" {
 }
 
 variable "container_image" {
-  description = "Docker image used as the base for the Ansible lab container"
+  description = "Docker image used as a disposable test target for developing Ansible playbooks before they run against production"
   type        = string
   default     = "ubuntu:24.04"
 }

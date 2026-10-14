@@ -1,0 +1,7 @@
+---
+- name: Harden target systems
+  hosts: test:production
+  become: true
+
+  roles:
+    - hardening

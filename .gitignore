@@ -3,3 +3,6 @@
 *.tfstate
 *.tfstate.*
 *.tfvars
+
+# Ansible
+ansible/inventory.ini

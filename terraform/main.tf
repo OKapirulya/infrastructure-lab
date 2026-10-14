@@ -16,7 +16,8 @@ resource "docker_image" "ubuntu" {
 }
 
 resource "docker_container" "ansible_target" {
-  name    = "ansible-hardening-lab"
+  name    = var.container_name
   image   = docker_image.ubuntu.image_id
   command = ["sleep", "infinity"]
 }
+
