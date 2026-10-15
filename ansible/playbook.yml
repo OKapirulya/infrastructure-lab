@@ -2,6 +2,7 @@
 - name: Harden target systems
   hosts: test:production
   become: true
+  gather_facts: false
 
   roles:
     - hardening

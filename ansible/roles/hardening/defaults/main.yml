@@ -1,2 +1,11 @@
 ---
-# defaults file for roles/hardening
+hardening_admin_user: ansibleuser
+
+hardening_allowed_ports:
+  - 22
+  - 80
+  - 443
+
+hardening_fail2ban_maxretry: 5
+hardening_fail2ban_bantime: 3600
+hardening_fail2ban_findtime: 600

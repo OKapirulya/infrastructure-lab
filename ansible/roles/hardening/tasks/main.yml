@@ -14,7 +14,7 @@
 
 - name: Create a non-root user
   ansible.builtin.user:
-    name: ansibleuser
+    name: "{{ hardening_admin_user }}"
     groups: sudo
     shell: /bin/bash
     create_home: true
@@ -47,23 +47,12 @@
 - name: Configure and enable UFW
   when: "'production' in group_names"
   block:
-    - name: Allow SSH through UFW
+    - name: Allow required ports through UFW
       community.general.ufw:
         rule: allow
-        port: "22"
+        port: "{{ item }}"
         proto: tcp
-
-    - name: Allow HTTP through UFW
-      community.general.ufw:
-        rule: allow
-        port: "80"
-        proto: tcp
-
-    - name: Allow HTTPS through UFW
-      community.general.ufw:
-        rule: allow
-        port: "443"
-        proto: tcp
+      loop: "{{ hardening_allowed_ports }}"
 
     - name: Enable UFW with default deny policy
       community.general.ufw:
@@ -94,8 +83,8 @@
       [sshd]
       enabled = true
       port = ssh
-      maxretry = 5
-      bantime = 3600
-      findtime = 600
+      maxretry = {{ hardening_fail2ban_maxretry }}
+      bantime = {{ hardening_fail2ban_bantime }}
+      findtime = {{ hardening_fail2ban_findtime }}
     mode: '0644'
   notify: Restart fail2ban
