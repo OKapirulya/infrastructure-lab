@@ -1,61 +1,78 @@
 # infrastructure-lab
 
-Terraform and Ansible setup that provisions a disposable test environment and uses it to safely develop and verify the configuration management that hardens the production server behind [inventory-api](https://github.com/OKapirulya/inventory-api) and [monitoring-stack](https://github.com/OKapirulya/monitoring-stack).
+This is the part of my portfolio that nobody sees running, but everything else depends on. [inventory-api](https://github.com/OKapirulya/inventory-api) and [monitoring-stack](https://github.com/OKapirulya/monitoring-stack) both live on a single VPS, and this project is what sets that server up and keeps it in shape: users, a firewall, SSH hardening, fail2ban, the works. All of it as code, instead of a list of commands I half remember typing once.
 
-## How this fits into the bigger picture
+## The short version
 
-inventory-api, monitoring-stack, and log-aggregation all run as Docker containers on a single VPS. Together they form one continuous story: an API, observed by metrics, with its logs collected and searchable, all deployed through a CI/CD pipeline. This project is the layer underneath that story: the operating system the containers actually run on.
+Terraform spins up a disposable test container on the same VPS. Ansible hardens it first, to catch mistakes somewhere that doesn't matter. Once a change behaves on the container, the exact same playbook runs against the real server. A small script connects the two tools, so the test target is always read from Terraform directly, never typed in twice by hand.
 
-Rather than being a separate exercise, it takes the manual steps used when that same server was first set up (creating users, installing fail2ban, enabling automatic security updates) and turns them into versioned, repeatable code. The target of this project's Ansible playbook is the exact machine that serves `api.olegkapy.com` and `monitoring.olegkapy.com` today.
+## Why a container instead of a cloud VM
 
-## Why Docker instead of a cloud VM
+Terraform usually spins up real virtual machines through a cloud provider's API. My VPS is hosted with a provider that doesn't expose one on this plan, so Terraform has no way to create or destroy a server here.
 
-Terraform normally provisions virtual machines through a cloud provider's API (Hetzner, AWS, DigitalOcean, and so on). The VPS this project targets is hosted with a provider that has no such API available on this plan, so Terraform cannot create or destroy a real server here.
+What it can do is talk to the Docker Engine already running on that VPS, over SSH, and manage a container there. That container was never meant to look like a production server. It exists so Ansible roles can be tried out somewhere safe, before they ever get near the machine that actually matters.
 
-Instead, Terraform talks to the Docker Engine API on the existing VPS over SSH and manages a container. That container is not meant to simulate a production server. It is a disposable target to develop and test Ansible roles against before they ever touch the real machine, the same way application code runs through CI checks before it reaches production.
+## How Terraform and Ansible are actually connected
 
-## Architecture
+This part took a few tries to get right, so it's worth spelling out.
 
 ~~~
-Terraform (kreuzwerker/docker provider)
-  -> creates a plain ubuntu:24.04 container over SSH
+terraform apply
+  -> creates (or updates) the test container, its name tracked in Terraform's state
 
-Ansible (hardening role)
-  -> test target:        the container above
-  -> production target:  the real VPS running inventory-api, monitoring-stack, log-aggregation
+scripts/generate-test-inventory.sh
+  -> reads that name straight from Terraform's output
+  -> writes ansible/inventory/test
+
+ansible-playbook playbook.yml --limit test
+  -> uses that file, always current, never hand maintained
 ~~~
 
-Both targets are defined in one inventory, grouped as `test` and `production`. Every playbook run is pointed explicitly at one group with `--limit`, so a command developed against the container can never accidentally run against the live server.
-
-Some tasks only run against `production`: the test container has no init system and no real network stack to manage, so firewall and SSH daemon configuration are skipped there and only verified once they reach the real server.
+Production lives in its own file, `ansible/inventory/production`, which I keep and edit myself since Terraform has no business touching the real server's identity.
 
 ## What the hardening role does
 
-- Installs `sudo` and creates a dedicated, limited user for configuration management tasks
+- Installs `sudo` and creates a dedicated, limited user for configuration tasks
 - Installs `fail2ban`, `unattended-upgrades`, and `curl`
-- Enables automatic security updates
-- Installs and enables UFW with a default-deny policy, allowing only SSH, HTTP, and HTTPS (production only)
-- Disables SSH root login and password authentication, enforcing key-based access (production only)
-- Deploys a fail2ban jail for SSH: bans an IP for one hour after 5 failed login attempts within 10 minutes
+- Turns on automatic security updates
+- Installs UFW and enables it with a default deny policy, only SSH, HTTP, and HTTPS allowed through (production only)
+- Turns off SSH root login and password authentication, so only keys get you in (production only)
+- Writes a fail2ban jail for SSH: five failed logins within ten minutes earns an IP a one hour ban
 
-## Security decisions worth calling out
+The two "production only" items are skipped on the test container on purpose. It has no init system and no real network stack to speak of, so there's nothing there for a firewall or an SSH daemon to actually manage.
 
-- The `deploy` user used by the inventory-api CI/CD pipeline keeps the minimal, docker-only permissions it was created with. Hardening tasks run as a separate user with its own key and sudo access, so the two responsibilities stay cleanly separated.
-- Host key checking is left enabled. The server's SSH host key is added to `known_hosts` once, deliberately, with `ssh-keyscan`, rather than disabling the check in Ansible's configuration.
-- Sudo on production requires a password, entered interactively per run (`--ask-become-pass`), rather than configuring passwordless sudo for convenience.
-- UFW rules are applied before the firewall is enabled, and SSH access is allowed first, so a run can never lock out the only way in.
+## Before running anything against the real server
 
-## Usage
-
-Requirements: Terraform, Ansible, and the `community.docker` and `community.general` collections (`ansible-galaxy collection install community.docker community.general`). Docker must be reachable from your machine over the SSH alias configured for the target server.
-
-Copy the inventory template and fill in your own server details:
+Terraform has `plan`, which shows what would happen without doing it. Ansible has the same thing, it's just easy to forget:
 
 ~~~
-cp ansible/inventory.ini.example ansible/inventory.ini
+ansible-playbook playbook.yml --limit production --ask-become-pass --check --diff
 ~~~
 
-Create the test container:
+`--check` simulates the run, `--diff` shows exactly which lines in which files would change. I run this before every production apply, the same way I'd never skip `terraform plan`.
+
+## Security decisions worth knowing about
+
+- The `deploy` user from inventory-api's CI/CD pipeline keeps the narrow, docker only permissions it was given. Hardening runs as a separate user with its own key and sudo access, so the two jobs never overlap.
+- Host key checking stays on. The server's key gets added to `known_hosts` once, on purpose, with `ssh-keyscan`, rather than switching the check off in Ansible's config.
+- Sudo on production asks for a password every time, typed in by hand, instead of being configured away for convenience.
+- UFW rules go in before the firewall turns on, and SSH is allowed first of all, so a run can never lock out the only way back in.
+
+## Running it yourself
+
+You'll need Terraform, Ansible, and the collections pinned in `ansible/requirements.yml`:
+
+~~~
+ansible-galaxy collection install -r ansible/requirements.yml
+~~~
+
+Copy the production inventory template and fill in your own server:
+
+~~~
+cp ansible/inventory.example ansible/inventory/production
+~~~
+
+Bring up the test container:
 
 ~~~
 cd terraform
@@ -63,19 +80,26 @@ terraform init
 terraform apply
 ~~~
 
-Run the hardening role against the test container first:
+Generate its inventory entry and run the role against it:
 
 ~~~
-cd ../ansible
+cd ..
+./scripts/generate-test-inventory.sh
+cd ansible
 ansible-playbook playbook.yml --limit test
 ~~~
 
-Once that passes cleanly, run it against production:
+Once that's clean, do the same against production, dry run first:
 
 ~~~
+ansible-playbook playbook.yml --limit production --ask-become-pass --check --diff
 ansible-playbook playbook.yml --limit production --ask-become-pass
 ~~~
 
+## What else is in here
+
+A GitHub Actions pipeline runs on every push: `terraform fmt` and `terraform validate` on one side, `ansible-lint` (at the `production` profile, the strictest one) and `yamllint` on the other. Neither job ever touches real infrastructure. They just make sure the code itself is sound before anything gets applied by hand.
+
 ## Roadmap
 
-This is one part of a larger self-study project: inventory-api, monitoring-stack, log-aggregation, this infrastructure project, and eventually a Kubernetes deployment of inventory-api.
+One piece of a bigger self study project: inventory-api, monitoring-stack, log-aggregation, this one, and eventually a Kubernetes deployment of inventory-api on top of all of it.

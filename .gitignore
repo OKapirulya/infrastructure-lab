@@ -5,5 +5,6 @@
 *.tfvars
 
 # Ansible
-ansible/inventory.ini
+ansible/inventory/production
+ansible/inventory/test
 .lint-venv/
