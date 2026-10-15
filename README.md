@@ -27,21 +27,27 @@ Ansible (hardening role)
 
 Both targets are defined in one inventory, grouped as `test` and `production`. Every playbook run is pointed explicitly at one group with `--limit`, so a command developed against the container can never accidentally run against the live server.
 
+Some tasks only run against `production`: the test container has no init system and no real network stack to manage, so firewall and SSH daemon configuration are skipped there and only verified once they reach the real server.
+
 ## What the hardening role does
 
 - Installs `sudo` and creates a dedicated, limited user for configuration management tasks
 - Installs `fail2ban`, `unattended-upgrades`, and `curl`
 - Enables automatic security updates
+- Installs and enables UFW with a default-deny policy, allowing only SSH, HTTP, and HTTPS (production only)
+- Disables SSH root login and password authentication, enforcing key-based access (production only)
+- Deploys a fail2ban jail for SSH: bans an IP for one hour after 5 failed login attempts within 10 minutes
 
 ## Security decisions worth calling out
 
 - The `deploy` user used by the inventory-api CI/CD pipeline keeps the minimal, docker-only permissions it was created with. Hardening tasks run as a separate user with its own key and sudo access, so the two responsibilities stay cleanly separated.
 - Host key checking is left enabled. The server's SSH host key is added to `known_hosts` once, deliberately, with `ssh-keyscan`, rather than disabling the check in Ansible's configuration.
 - Sudo on production requires a password, entered interactively per run (`--ask-become-pass`), rather than configuring passwordless sudo for convenience.
+- UFW rules are applied before the firewall is enabled, and SSH access is allowed first, so a run can never lock out the only way in.
 
 ## Usage
 
-Requirements: Terraform, Ansible, and the `community.docker` collection (`ansible-galaxy collection install community.docker`). Docker must be reachable from your machine over the SSH alias configured for the target server.
+Requirements: Terraform, Ansible, and the `community.docker` and `community.general` collections (`ansible-galaxy collection install community.docker community.general`). Docker must be reachable from your machine over the SSH alias configured for the target server.
 
 Copy the inventory template and fill in your own server details:
 
