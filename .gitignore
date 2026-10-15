@@ -6,3 +6,4 @@
 
 # Ansible
 ansible/inventory.ini
+.lint-venv/

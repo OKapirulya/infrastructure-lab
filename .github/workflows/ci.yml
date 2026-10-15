@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  terraform:
+    name: Terraform fmt & validate
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: terraform
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.16.5"
+
+      - name: Check formatting
+        run: terraform fmt -check -recursive
+
+      - name: Initialize (no backend, no credentials needed)
+        run: terraform init -backend=false
+
+      - name: Validate configuration
+        run: terraform validate
+
+  ansible:
+    name: Ansible lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install linting tools
+        run: pip install ansible-lint yamllint
+
+      - name: Run yamllint
+        run: yamllint ansible/
+
+      - name: Run ansible-lint
+        run: ansible-lint ansible/playbook.yml
