@@ -35,3 +35,65 @@
     content: |
       APT::Periodic::Update-Package-Lists "1";
       APT::Periodic::Unattended-Upgrade "1";
+
+- name: Install UFW
+  ansible.builtin.apt:
+    name: ufw
+    state: present
+  environment:
+    DEBIAN_FRONTEND: noninteractive
+
+- name: Configure and enable UFW
+  when: "'production' in group_names"
+  block:
+    - name: Allow SSH through UFW
+      community.general.ufw:
+        rule: allow
+        port: "22"
+        proto: tcp
+
+    - name: Allow HTTP through UFW
+      community.general.ufw:
+        rule: allow
+        port: "80"
+        proto: tcp
+
+    - name: Allow HTTPS through UFW
+      community.general.ufw:
+        rule: allow
+        port: "443"
+        proto: tcp
+
+    - name: Enable UFW with default deny policy
+      community.general.ufw:
+        state: enabled
+        policy: deny
+
+- name: Harden SSH configuration
+  when: "'production' in group_names"
+  block:
+    - name: Disable SSH root login
+      ansible.builtin.lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?PermitRootLogin'
+        line: 'PermitRootLogin no'
+      notify: Restart sshd
+
+    - name: Disable SSH password authentication
+      ansible.builtin.lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?PasswordAuthentication'
+        line: 'PasswordAuthentication no'
+      notify: Restart sshd
+
+- name: Deploy fail2ban jail configuration
+  ansible.builtin.copy:
+    dest: /etc/fail2ban/jail.local
+    content: |
+      [sshd]
+      enabled = true
+      port = ssh
+      maxretry = 5
+      bantime = 3600
+      findtime = 600
+  notify: Restart fail2ban
