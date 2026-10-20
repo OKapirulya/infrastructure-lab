@@ -35,7 +35,7 @@
     content: |
       APT::Periodic::Update-Package-Lists "1";
       APT::Periodic::Unattended-Upgrade "1";
-    mode: '0644'
+    mode: "0644"
 
 - name: Install UFW
   ansible.builtin.apt:
@@ -62,18 +62,14 @@
 - name: Harden SSH configuration
   when: "'production' in group_names"
   block:
-    - name: Disable SSH root login
-      ansible.builtin.lineinfile:
-        path: /etc/ssh/sshd_config
-        regexp: '^#?PermitRootLogin'
-        line: 'PermitRootLogin no'
-      notify: Restart sshd
-
-    - name: Disable SSH password authentication
-      ansible.builtin.lineinfile:
-        path: /etc/ssh/sshd_config
-        regexp: '^#?PasswordAuthentication'
-        line: 'PasswordAuthentication no'
+    - name: Deploy authoritative SSH hardening overrides
+      ansible.builtin.copy:
+        dest: /etc/ssh/sshd_config.d/00-hardening.conf
+        content: |
+          PermitRootLogin no
+          PasswordAuthentication no
+          KbdInteractiveAuthentication no
+        mode: "0600"
       notify: Restart sshd
 
 - name: Deploy fail2ban jail configuration
@@ -86,5 +82,5 @@
       maxretry = {{ hardening_fail2ban_maxretry }}
       bantime = {{ hardening_fail2ban_bantime }}
       findtime = {{ hardening_fail2ban_findtime }}
-    mode: '0644'
+    mode: "0644"
   notify: Restart fail2ban
