@@ -1,0 +1,47 @@
+---
+- name: Create oleg user with sudo access
+  ansible.builtin.user:
+    name: oleg
+    groups: sudo
+    shell: /bin/bash
+    create_home: true
+    password: "{{ bootstrap_oleg_password | password_hash('sha512') }}"
+  no_log: true
+
+- name: Create deploy user (no sudo)
+  ansible.builtin.user:
+    name: deploy
+    shell: /bin/bash
+    create_home: true
+
+- name: Ensure .ssh directory exists for oleg
+  ansible.builtin.file:
+    path: /home/oleg/.ssh
+    state: directory
+    owner: oleg
+    group: oleg
+    mode: "0700"
+
+- name: Ensure .ssh directory exists for deploy
+  ansible.builtin.file:
+    path: /home/deploy/.ssh
+    state: directory
+    owner: deploy
+    group: deploy
+    mode: "0700"
+
+- name: Deploy oleg's public key
+  ansible.builtin.copy:
+    content: "{{ lookup('file', bootstrap_oleg_pubkey_path) }}"
+    dest: /home/oleg/.ssh/authorized_keys
+    owner: oleg
+    group: oleg
+    mode: "0600"
+
+- name: Deploy deploy's public key
+  ansible.builtin.copy:
+    content: "{{ lookup('file', bootstrap_deploy_pubkey_path) }}"
+    dest: /home/deploy/.ssh/authorized_keys
+    owner: deploy
+    group: deploy
+    mode: "0600"

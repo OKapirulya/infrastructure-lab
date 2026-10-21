@@ -1,0 +1,15 @@
+---
+- name: Bootstrap fresh server with oleg and deploy users
+  hosts: all
+  gather_facts: false
+  vars_prompt:
+    - name: bootstrap_oleg_password
+      prompt: "Set sudo password for oleg"
+      private: true
+  pre_tasks:
+    - name: Ensure Python is available for Ansible modules (test container only)
+      ansible.builtin.raw: apt-get update && apt-get install -y python3
+      when: "'test' in group_names"
+      changed_when: true
+  roles:
+    - bootstrap

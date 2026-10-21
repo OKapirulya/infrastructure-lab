@@ -1,0 +1,3 @@
+---
+bootstrap_oleg_pubkey_path: "{{ lookup('env', 'HOME') }}/.ssh/terraform_deploy.pub"
+bootstrap_deploy_pubkey_path: "{{ lookup('env', 'HOME') }}/.ssh/github_actions_deploy.pub"

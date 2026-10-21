@@ -3,6 +3,10 @@
   hosts: test:production
   become: true
   gather_facts: false
-
+  pre_tasks:
+    - name: Ensure Python is available for Ansible modules (test container only)
+      ansible.builtin.raw: apt-get update && apt-get install -y python3
+      when: "'test' in group_names"
+      changed_when: true
   roles:
     - hardening
