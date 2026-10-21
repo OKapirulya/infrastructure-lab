@@ -112,4 +112,5 @@
   loop: "{{ app_server_sites }}"
   when: "'production' in group_names"
   register: certbot_result
-  changed_when: "'Certificate not yet due for renewal' not in certbot_result.stdout"
+  changed_when: >-
+    'Certificate not yet due for renewal' not in certbot_result.stdout
