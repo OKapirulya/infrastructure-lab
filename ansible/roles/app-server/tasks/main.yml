@@ -70,13 +70,20 @@
     state: started
   when: "'production' in group_names"
 
+- name: Check whether a certificate already exists
+  ansible.builtin.stat:
+    path: "/etc/letsencrypt/live/{{ item.domain }}/fullchain.pem"
+  loop: "{{ app_server_sites }}"
+  register: cert_check
+  when: "'production' in group_names"
+
 - name: Deploy Nginx vhost configs
   ansible.builtin.template:
     src: vhost.conf.j2
-    dest: "/etc/nginx/sites-available/{{ item.domain }}"
+    dest: "/etc/nginx/sites-available/{{ item.item.domain }}"
     mode: "0644"
-  loop: "{{ app_server_sites }}"
-  when: "'production' in group_names"
+  loop: "{{ cert_check.results }}"
+  when: "'production' in group_names and not item.stat.exists"
   notify: Reload nginx
 
 - name: Enable Nginx vhosts
