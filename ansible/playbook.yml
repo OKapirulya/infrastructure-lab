@@ -1,5 +1,5 @@
 ---
-- name: Harden target systems
+- name: Configure and harden target systems
   hosts: test:production
   become: true
   gather_facts: false
@@ -8,5 +8,11 @@
       ansible.builtin.raw: apt-get update && apt-get install -y python3
       when: "'test' in group_names"
       changed_when: true
+      become: false
+
+    - name: Gather facts now that Python is guaranteed to be present
+      ansible.builtin.setup:
+      become: false
   roles:
     - hardening
+    - app-server

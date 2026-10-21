@@ -1,0 +1,6 @@
+---
+app_server_sites:
+  - domain: api.olegkapy.com
+    proxy_port: 3000
+  - domain: monitoring.olegkapy.com
+    proxy_port: 3001

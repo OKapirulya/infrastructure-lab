@@ -1,0 +1,115 @@
+---
+- name: Install Docker prerequisites
+  ansible.builtin.apt:
+    name:
+      - ca-certificates
+      - curl
+      - gnupg
+    state: present
+  environment:
+    DEBIAN_FRONTEND: noninteractive
+
+- name: Create keyrings directory
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: "0755"
+
+- name: Add Docker GPG key
+  ansible.builtin.get_url:
+    url: https://download.docker.com/linux/ubuntu/gpg
+    dest: /etc/apt/keyrings/docker.asc
+    mode: "0644"
+
+- name: Add Docker apt repository
+  ansible.builtin.apt_repository:
+    repo: >-
+      deb [arch={{ ansible_architecture | regex_replace('x86_64', 'amd64') }}
+      signed-by=/etc/apt/keyrings/docker.asc]
+      https://download.docker.com/linux/ubuntu
+      {{ ansible_distribution_release }} stable
+    state: present
+    filename: docker
+
+- name: Install Docker
+  ansible.builtin.apt:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-buildx-plugin
+      - docker-compose-plugin
+    state: present
+    update_cache: true
+  environment:
+    DEBIAN_FRONTEND: noninteractive
+
+- name: Add oleg to docker group
+  ansible.builtin.user:
+    name: oleg
+    groups: docker
+    append: true
+
+- name: Add deploy to docker group
+  ansible.builtin.user:
+    name: deploy
+    groups: docker
+    append: true
+
+- name: Install Nginx
+  ansible.builtin.apt:
+    name: nginx
+    state: present
+  environment:
+    DEBIAN_FRONTEND: noninteractive
+
+- name: Enable Nginx service
+  ansible.builtin.systemd:
+    name: nginx
+    enabled: true
+    state: started
+  when: "'production' in group_names"
+
+- name: Deploy Nginx vhost configs
+  ansible.builtin.template:
+    src: vhost.conf.j2
+    dest: "/etc/nginx/sites-available/{{ item.domain }}"
+    mode: "0644"
+  loop: "{{ app_server_sites }}"
+  when: "'production' in group_names"
+  notify: Reload nginx
+
+- name: Enable Nginx vhosts
+  ansible.builtin.file:
+    src: "/etc/nginx/sites-available/{{ item.domain }}"
+    dest: "/etc/nginx/sites-enabled/{{ item.domain }}"
+    state: link
+  loop: "{{ app_server_sites }}"
+  when: "'production' in group_names"
+  notify: Reload nginx
+
+- name: Validate Nginx configuration
+  ansible.builtin.command: nginx -t
+  changed_when: false
+  when: "'production' in group_names"
+
+- name: Install Certbot
+  ansible.builtin.apt:
+    name:
+      - certbot
+      - python3-certbot-nginx
+    state: present
+  environment:
+    DEBIAN_FRONTEND: noninteractive
+  when: "'production' in group_names"
+
+- name: Obtain or renew TLS certificates via Certbot
+  ansible.builtin.command: >
+    certbot --nginx -d {{ item.domain }}
+    --non-interactive --agree-tos
+    -m {{ app_server_certbot_email }}
+    --redirect
+  loop: "{{ app_server_sites }}"
+  when: "'production' in group_names"
+  register: certbot_result
+  changed_when: "'Certificate not yet due for renewal' not in certbot_result.stdout"
