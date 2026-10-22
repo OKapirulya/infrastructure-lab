@@ -1,0 +1,2 @@
+command="sudo /usr/local/bin/redeploy-{{ deploy_access_target.name }}.sh",no-agent-forwarding,no-port-forwarding,no-X11-forwarding,no-pty {{ lookup('file', deploy_access_pubkey_path) }}
+{{ lookup('file', deploy_access_terraform_pubkey_path) }}

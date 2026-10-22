@@ -16,3 +16,4 @@
   roles:
     - hardening
     - app-server
+    - deploy-access

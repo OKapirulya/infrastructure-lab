@@ -1,0 +1,8 @@
+#!/bin/bash
+# Fixed, non-interactive redeploy command for inventory-api.
+# This is the ONLY thing the deploy SSH key is allowed to trigger.
+set -euo pipefail
+cd {{ deploy_access_target.repo_dir }}
+git pull origin main
+docker compose -f {{ deploy_access_target.compose_file }} up --build -d
+docker image prune -f

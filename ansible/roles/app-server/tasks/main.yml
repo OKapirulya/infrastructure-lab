@@ -55,12 +55,6 @@
     groups: docker
     append: true
 
-- name: Add deploy to docker group
-  ansible.builtin.user:
-    name: deploy
-    groups: docker
-    append: true
-
 - name: Install Nginx
   ansible.builtin.apt:
     name: nginx

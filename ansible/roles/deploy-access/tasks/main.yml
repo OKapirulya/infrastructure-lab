@@ -1,0 +1,28 @@
+---
+- name: Deploy the fixed redeploy script
+  ansible.builtin.template:
+    src: redeploy.sh.j2
+    dest: "/usr/local/bin/redeploy-{{ deploy_access_target.name }}.sh"
+    owner: root
+    group: root
+    mode: "0750"
+  when: "'production' in group_names"
+
+- name: Allow deploy to run the redeploy script via sudo, nothing else
+  ansible.builtin.template:
+    src: sudoers.j2
+    dest: /etc/sudoers.d/deploy-redeploy
+    owner: root
+    group: root
+    mode: "0440"
+    validate: "visudo -cf %s"
+  when: "'production' in group_names"
+
+- name: Lock deploy's SSH key to only run the redeploy script
+  ansible.builtin.template:
+    src: authorized_keys.j2
+    dest: /home/deploy/.ssh/authorized_keys
+    owner: deploy
+    group: deploy
+    mode: "0600"
+  when: "'production' in group_names"

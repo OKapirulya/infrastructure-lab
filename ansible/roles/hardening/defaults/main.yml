@@ -1,5 +1,5 @@
 ---
-hardening_admin_user: ansibleuser
+hardening_admin_user: oleg
 
 hardening_allowed_ports:
   - 22

@@ -1,0 +1,2 @@
+# Allow deploy to run exactly this one script as root, nothing else.
+deploy ALL=(root) NOPASSWD: /usr/local/bin/redeploy-{{ deploy_access_target.name }}.sh
