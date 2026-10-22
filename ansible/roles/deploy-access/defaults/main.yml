@@ -4,5 +4,7 @@ deploy_access_target:
   repo_dir: /home/deploy/inventory-api
   compose_file: docker-compose.prod.yml
 
-deploy_access_pubkey_path: "{{ lookup('env', 'HOME') }}/.ssh/github_actions_deploy.pub"
-deploy_access_terraform_pubkey_path: "{{ lookup('env', 'HOME') }}/.ssh/terraform_deploy.pub"
+deploy_access_pubkey_path: >-
+  {{ lookup('env', 'HOME') }}/.ssh/github_actions_deploy.pub
+deploy_access_terraform_pubkey_path: >-
+  {{ lookup('env', 'HOME') }}/.ssh/terraform_deploy.pub
