@@ -1,0 +1,11 @@
+# Default: the disposable test container used for Ansible development
+ssh_host       = "hools-terraform"
+container_name = "ansible-hardening-lab"
+
+# To point Terraform at a DIFFERENT server instead, just set a different
+# SSH alias here. Prerequisite: that server has already been prepared
+# with bootstrap.yml + playbook.yml (SSH access, Docker installed) -
+# that's what Ansible is for.
+#
+# ssh_host       = "some-other-server"
+# container_name = "some-other-container"
